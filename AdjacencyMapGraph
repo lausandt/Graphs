@@ -1,0 +1,205 @@
+/**
+ * 
+ */
+package graphs;
+
+import list_abstractions.Position;
+import list_abstractions.PositionalList;
+import mapsHashSkip.Map;
+import mapsHashSkip.ProbeHashMap;
+import graphs.Edge;
+import graphs.Vertex;
+
+/**
+ * This implementation of a graph is based upon positional lists and maps
+ * The lists store the vertices and edges
+ * The vertices manage 1 or 2 maps (depending if the they're (un)directed ) of edges
+ * each edge manages an array of two vertices (where both could be the same)
+ * 
+ * @author Lau Sandt
+ * https://github.com/lausandt/Graphs
+ */
+public class AdjacencyMapGraph<V, E> implements Graph<V,E> {
+
+	// nested classes
+	private class InnerVertex<V> implements Vertex<V> {
+		private V element;
+		private Position<Vertex<V>> pos;
+		private Map<Vertex<V>, Edge<E>> incoming, outgoing;
+
+		/** Constructs a new InnerVertex instance storing the given element*/
+		public InnerVertex(V element, boolean graphIsDirected) {
+			this.element = element;
+			outgoing = new ProbeHashMap<>();
+			if (graphIsDirected) 
+				incoming = new ProbeHashMap<>();
+			else
+				incoming = outgoing;
+		}
+
+		public V getElement() { return element; }
+		public void setPosition(Position<Vertex<V>> p) { pos = p; }
+		public Position<Vertex<V>> getPosition(){ return pos; }
+
+		/** Validates that this vertex instance belongs to the given graph. */
+		public boolean validate(Graph<V,E> graph) {
+			return (AdjacencyMapGraph.this == graph && pos != null);
+		}
+		public Map<Vertex<V>,Edge<E>> getOutgoing() { return outgoing; }
+		public Map<Vertex<V>,Edge<E>> getIncoming() { return incoming; }	
+	} // -------- end of InnerVertex class --------
+
+	private class InnerEdge<E> implements Edge<E>{
+		private E element;
+		private Position<Edge<E>> pos;
+		private Vertex<V>[] endpoints;
+
+		/** constructs an inner edge from u to v with given element */
+		@SuppressWarnings("unchecked")
+		public InnerEdge(Vertex<V> u, Vertex<V> v, E element) {
+			this.element = element;
+			endpoints = (Vertex<V>[]) new Vertex[] {u,v};
+		}	
+
+		public boolean validate(Graph<V,E> graph) {
+			return (AdjacencyMapGraph.this == graph && pos != null);
+		}
+
+		@Override
+		public E getElement() { return element;}
+		public Vertex<V>[] getEndpoints(){ return endpoints; }
+		public void setPosition(Position<Edge<E>> p) { pos = p; }
+		public Position<Edge<E>> getPosition() { return pos; }	
+	} // -------- end InnerEdge class 
+
+	// instance variables
+	private boolean isDirected;
+	private PositionalList<Vertex<V>> vertices;
+	private PositionalList<Edge<E>> edges;
+
+	// constructor
+
+	/** constructs an empty graph (directed or undirected */
+	public AdjacencyMapGraph(boolean directed) { isDirected = directed; }
+
+	@Override
+	public int numVertices() { return vertices.size(); }
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public Iterable<Vertex<V>> vertices() { return (Iterable<Vertex<V>>) vertices; }
+
+	@Override
+	public int numEdges() { return edges.size(); }
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public Iterable<Edge<E>> edges() { return (Iterable<Edge<E>>) edges; }
+
+	private InnerVertex<V> validate(Vertex<V> v) {
+		if (!(v instanceof InnerVertex)) throw new IllegalArgumentException("Invalid vertex");
+		InnerVertex<V> vert = (InnerVertex<V>) v;     // safe cast
+		if (!vert.validate(this)) throw new IllegalArgumentException("Invalid vertex");
+		return vert;
+	}
+
+	private InnerEdge<E> validate(Edge<E> e) {
+		if (!(e instanceof InnerEdge)) throw new IllegalArgumentException("Invalid vertex");
+		InnerEdge<E> edge = (InnerEdge<E>) e;     // safe cast
+		if (!edge.validate(this)) throw new IllegalArgumentException("Invalid vertex");
+		return edge;
+	}
+
+	/** 
+	 * returns the edge from vertex u and vertex v, if one exists, otherwise null. 
+	 *   For an undirected graph there no difference between getEdge(u,v) and getEdge(v,u)
+	 */
+	public Edge<E> getEdge(Vertex<V> u, Vertex<V> v) {
+		InnerVertex<V> origin = validate(u);
+		return origin.getOutgoing().get(v);          // getOutging delivers map and get(k) delivers the edge 
+	}
+
+	/**
+	 * returns an array of the two endpoint vertices of edge e. If the graph is directed,
+	 * the first is the origin and the second the destination
+	 */
+	public Vertex<V>[] endVertices(Edge<E> e) {
+		InnerEdge<E> edge = validate(e);
+		return edge.getEndpoints();
+	}
+
+	@Override
+	public Vertex<V> opposite(Vertex<V> v, Edge<E> e) throws IllegalArgumentException {
+		Vertex<V>[] endpoints = endVertices(e);
+		if (endpoints[0]==v) return endpoints[1];
+		else if (endpoints[1]==v) return endpoints[0];
+		else throw new IllegalArgumentException("this vertex is not incident to this edge");
+	}
+
+	@Override
+	public int outDegree(Vertex<V> v) {
+	    InnerVertex<V> vertex = validate(v);
+		return vertex.getOutgoing().size();
+	}
+
+	@Override
+	public int inDegree(Vertex<V> v) {
+		InnerVertex<V> vertex = validate(v);
+		return vertex.getIncoming().size();
+	}
+
+	@Override
+	public Iterable<Edge<E>> outgoingEdges(Vertex<V> v) {
+		InnerVertex<V> vertex = validate(v);
+		return vertex.getOutgoing().values();
+	}
+
+	@Override
+	public Iterable<Edge<E>> incomingEdges(Vertex<V> v) {
+		InnerVertex<V> vertex = validate(v);
+		return vertex.getIncoming().values();
+	}
+
+	/** creates and returns an new vertex storing element x */
+	public Vertex<V> insertVertex(V element) {
+		InnerVertex<V> vertex = new InnerVertex<>(element,isDirected);
+		vertex.setPosition(vertices.addLast(vertex));
+		return vertex;
+	}
+
+	/** creates and returns an edge from vertex u to v storing element an error occurs if such an edge exists*/
+	public Edge<E> insertEdge(Vertex<V> u, Vertex<V> v, E element) throws IllegalArgumentException {
+		if (getEdge(u,v)==null) {
+			InnerEdge<E> edge = new InnerEdge<>(u,v,element);
+			edge.setPosition(edges.addLast(edge));
+			InnerVertex<V> origin = validate(u);
+			InnerVertex<V> destination = validate(v);
+			origin.getOutgoing().put(v, edge);
+			destination.getIncoming().put(u, edge);
+			return edge;
+		}
+		else 
+			throw new IllegalArgumentException("edge exists");
+	}
+
+	/** removes vertex v and all the incident edges from the graph */
+	public void removeVertex(Vertex<V> v) throws IllegalArgumentException {
+		InnerVertex<V> vertex = validate(v);
+		for (Edge<E> e : vertex.getOutgoing().values())
+			removeEdge(e);
+		for (Edge<E> e : vertex.getIncoming().values())
+			removeEdge(e);
+        vertices.remove(vertex.getPosition());
+	}
+
+	/** removes an edge from the graph */
+	public void removeEdge(Edge<E> e) throws IllegalArgumentException {
+		InnerEdge<E> edge = validate(e);
+		InnerVertex<V>[] endpoints = (InnerVertex<V>[]) edge.getEndpoints();
+		endpoints[0].getOutgoing().remove(endpoints[1]);
+		endpoints[1].getOutgoing().remove(endpoints[0]);
+		edges.remove(edge.getPosition());
+		edge.setPosition(null);
+	}
+
+}
