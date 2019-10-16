@@ -1,0 +1,41 @@
+Graph ADT
+
+Vertex -> light weight object that stores some element
+Edge   -> stores an associated objected
+
+Graph  -> directed or undirected, designation declared at construction
+(it is always possible to make a directed graph out of an undirected graph or hybrid graph)
+
+numVertices(): returns the number of vertices of the graph
+
+vertices(): returns an iteration of all vertices of the graph
+
+numEdges(): returns the number of edges of the graph
+
+edges(): returns an iteration of all edges of the graph
+
+getEdge(u,v): returns the edge from vertex u and vertex v, if one exists, otherwise null. 
+              For an undirected graph there no difference between getEdge(u,v) and getEdge(v,u)
+              
+endVertices(e): returns an array of the two endpoint vertices of edge e. If the graph is directed,
+                the first is the origin and the second the destination
+    
+opposite(v,e): Returns the other vertex of e. An error occurs of v is not a vertex of e
+
+outDegree(v): Returns the number of outgoing edges from vertex v
+
+inDegree(v): Returns the number of ingoing edges to vertex v. For an undirected graph this is the same value as outDegree(v)
+
+outgoingEdges(v): Returns an iteration of all outgoing edges of v
+
+incomingEdges(v): Returns an iteration of all incoming edges of v
+
+insertVertex(x): creates and returns an new vertex storing element x
+
+insertEdge(u,v,x): creates and returns an edge from vertex u to v storing element x
+                   an error occurs if such an edge exists
+                  
+removeVertex(v): removes vertex v and all the incident edges from the graph
+
+removeEdge: removes the edge from the graph
+             
