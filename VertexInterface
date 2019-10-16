@@ -1,0 +1,12 @@
+/**
+ * 
+ */
+package graphs;
+
+/**
+ * @author Lau Sandt
+ * https://github.com/lausandt/Graphs
+ */
+public interface Vertex<V> {
+	V getElement();
+}
