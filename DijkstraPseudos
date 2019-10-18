@@ -1,0 +1,29 @@
+Algorithm Dijksta(G,s)
+  { adapted for Java }
+  Input:  A graph G with non nonnegative edge weights and a distinguished vertex s of G
+  Output: The length of the shortest path of s to v for each vertex of G
+  
+  let D[s] = 0, D[v] = inf
+  Let a priority Q contain all the vertices of G using the D[] labels of vertices as keys
+  while Qv is not empty do
+    u = value returned by Q.removeMin() //removes u from Q
+    for each edge (u, v) such that v is in Q do
+    {perform the relaxation procedure on edge (u,v)}
+    if D[u] + w(u,v) < D[v] // D[v] is intiliazed at inf
+      D[v] = D[u] + w(u,v)
+      change the key of vertex v in Q
+    return the label D[v] of each vertex v
+  
+  Algorithm Dijksta(G,s)
+     { more general }
+     Input:  A graph G with non nonnegative edge weights and a distinguished vertex s of G
+     Output: The length of the shortest path of s to v for each vertex of G
+     
+     let D[s] = 0, D[v] = inf
+     S <- empty set
+     Let a priority Q contain all the vertices of G using the D[] labels of vertices as keys
+     while Q is not empty
+      u <- extract-min Q // deletes u from Q
+      S = S union of u
+      for vertex v in Adj[u] 
+        relax(u,v,w)    // implicit decrease key of vertices in Q
