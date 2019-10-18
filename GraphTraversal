@@ -1,0 +1,222 @@
+/**
+ * 
+ */
+package graphs;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+
+import heaps_priority_queues.AdaptablePriorityQueue;
+import heaps_priority_queues.Entry;
+import heaps_priority_queues.HeapAdaptablePriorityQueue;
+import heaps_priority_queues.HeapPriorityQueue;
+import heaps_priority_queues.PriorityQueue;
+import list_abstractions.LinkedPositionalList;
+import net.datastructures.Position;
+import net.datastructures.PositionalList;
+import mapsHashSkip.Map;
+import mapsHashSkip.ProbeHashMap;
+import mapsHashSkip.Set;
+import net.datastructures.LinkedStack;
+import net.datastructures.Partition;
+import net.datastructures.Stack;
+
+/**
+ * Implementation of multi graph algorithms 
+ * 
+ * Traversal - Systematic procedure for exploring a graph by examining all it's vertices and edges.
+ * 
+ * A travelsal is efficient if it visits all n vertices in linear time 
+ * 
+ * These algorithm allow the following question to be asked (but are not on their own sufficient)
+ * 
+ * Undirected graph G
+ * 1 - Computing a path from vertex u tot v, or reporting that no such path exists
+ * 2 - Given a start vertex s of G, computing, for every vertex v of G a path between s and v with minimal edges or reporting that no such path exist
+ * 3 - Testing whether G is connected (if there is an edge between all pairs of vertices of G)
+ * 4 - Computing a spanning tree of G (if G is connected and no cycles)
+ * 5 - Identifying a cycle in G or reporting that G has none
+ * 
+ * Directed graph G
+ * 1 - Computing a directed graph or reporting that no such path exists
+ * 2 - Finding all vertices of G that are reachable from a given vertex s.
+ * 3 - Determine if G is acyclic (no cycles in a directed graph
+ * 4 - Determine if G is strongly connected (every vertex pair (u,v) is connected both (u,v) and (v,u)
+ * 
+ * discovery or tree edge: every edge e=(u,v) such that v is discovered from u
+ * 
+ * all other edges that are considered during traversal are nontree edges
+ * backward edge - connect a vertex to an ancestor in the DFS tree
+ * forward edge - connect a vertex to a descendant in the DFS tree
+ * cross edges - connect a vertex to a vertex that is neither
+ * 
+ * @author Lau Sandt
+ * 
+ *
+ */
+public class GraphTraversal<V,E> {
+	
+	/** performs depth first search of Graph g starting at the Vertex u */
+	public void DFS(Graph<V,E> g, Vertex<V> u, Set<Vertex<V>> known, Map<Vertex<V>, Edge<E>> forest) {
+		known.add(u);							// u has been discovered
+		for (Edge<E> e: g.outgoingEdges(u)) {	// for every outgoing edge of u
+			Vertex<V> v = g.opposite(u, e);  	
+			if (!known.contains(v)) {
+				forest.put(v, e);				// e is the tree edge that discovered v
+				DFS(g,v,known,forest);
+			}
+		}
+	}
+	
+	/** Returns an ordered list of edges comprising the directed path from u */
+	public PositionalList<Edge<E>> constructPath(Graph<V,E> g, Vertex<V> u, Vertex<V> v, Map<Vertex<V>, Edge<E>> forest){
+		PositionalList<Edge<E>> path = (PositionalList<Edge<E>>) new LinkedPositionalList<Edge<E>>();
+		if (forest.get(v) != null) {				// v was discovered during the search
+			Vertex<V> walk = v;						// construct the path from back to front
+			while (walk != u) {
+				Edge<E> edge = forest.get(walk);
+				path.addFirst(edge);				// add walk to front  of path
+				walk = g.opposite(v, edge);    		
+			}
+		}
+		return path;
+	}
+	
+	/** performs DFS for the entire graph and returns the DFS forest as a map */
+	@SuppressWarnings("unchecked")
+	public Map<Vertex<V>, Edge<E>> DFSComplete(Graph<V,E> g){
+		Set<Vertex<V>> known = (Set<Vertex<V>>) new HashSet<V>();
+		Map<Vertex<V>, Edge<E>> forest = new ProbeHashMap<>();
+		for (Vertex<V> u : g.vertices()) {
+			if (!known.contains(u))
+				DFS(g, u, known, forest);
+		}
+		return forest;
+	}
+	
+	/** performs a breadth first search of Graph g starting at Vertex u */
+	public void BFS(Graph<V,E> g, Vertex<V> s, Set<Vertex<V>> known, Map<Vertex<V>, Edge<E>> forest) {
+		ArrayList<Vertex<V>> level = new ArrayList<>();
+		known.add(s);
+		level.add(s);
+		while (!level.isEmpty()) {
+			ArrayList<Vertex<V>> nextLevel  = new ArrayList<>();
+			for (Vertex<V> u : level)
+				for (Edge<E> edge : g.outgoingEdges(u)) {
+					Vertex<V> v = g.opposite(u, edge);
+					if (!known.contains(v)) {
+						known.add(v);
+						forest.put(v, edge);
+						nextLevel.add(v);
+					}
+				}
+					
+			level = nextLevel;		
+		}
+	}
+	
+	/** converts graph g into its transitive closure */
+	public void transitiveClosure(Graph<V,E> g) {
+		for (Vertex<V> k : g.vertices())									// for vertex k
+			for (Vertex<V> i : g.vertices())								// and vertex i
+				if (i != k && g.getEdge(i, k) != null)						// if edge (i,k) exist 
+					for (Vertex<V> j : g.vertices())						// for vertex j
+						if ( i != j && j != k && g.getEdge(k, j)!= null)    // if there is an edge from k to j (and thus a path exists from i to j)
+							if (g.getEdge(i, j)== null)                     // but there is no edge from i to j                     
+								g.insertEdge(i, j, null);                   // insert one
+		
+	}
+	
+	/** returns a list of vertices of a DAG g in topological order */
+	public PositionalList<Vertex<V>> topologicalSort(Graph<V,E> g){
+		PositionalList<Vertex<V>> topo = (PositionalList<Vertex<V>>) new LinkedPositionalList<Vertex<V>>(); 	// list of vertices placed in topological order
+		Stack<Vertex<V>> ready = new LinkedStack<>();					// container of verices that have no remaining constraints
+		Map<Vertex<V>, Integer> inCount = new ProbeHashMap<>();         // map keeping track of remaining indegree for each vertex
+		// load map with actual indegree
+		for (Vertex<V> u : g.vertices()) {
+			inCount.put(u, g.inDegree(u));								// put for every vertev v e G the incoming edges
+			if (inCount.get(u)==0)										// if that incoming edge count is 0
+				ready.push(u);	                                        // it has no constraints and can be put onto the ready stack
+		}
+		while (!ready.isEmpty()) {										// A dag can't have any cycles therefore this has to have minimal one entry at first 
+			Vertex<V> u = ready.pop();									// pop the entry
+			topo.addLast(u);											// add to topo
+			for (Edge<E> e : g.outgoingEdges(u)) {						
+				Vertex<V> v = g.opposite(u, e);
+				inCount.put(v, inCount.get(v)-1);						// has to be one less for we just removed u as incoming edge
+				if (inCount.get(v)==0)
+					ready.push(v);
+			}
+		}
+		return topo;
+	}
+	
+	/** computes shortest path distances from src vertex to all reachable vertices in graph G using Dijkstra*/
+	public Map<Vertex<V>, Integer> shortestPathLengths(Graph<V, Integer> G, Vertex<V> s){
+		Map<Vertex<V>, Integer> d = new ProbeHashMap<>();										// d.get(v) is upperbound on distance from s to v 
+		Map<Vertex<V>, Integer> cloud = new ProbeHashMap<>();									// map with v reachable from s with d values (Dijkstra's S)
+		AdaptablePriorityQueue<Integer, Vertex<V>> pq = new HeapAdaptablePriorityQueue<>();     // pq will have vertices as elements and d values as key (Dijkstra's Q)
+		Map<Vertex<V>, Entry<Integer,Vertex<V>>> pqTokens = new ProbeHashMap<>();               // maps from vertex to it pq locator (allows to use vertices as key)
+		
+		for (Vertex<V> v : G.vertices()) {  // Dijkstra's load Q
+			if (v == s)
+				d.put(v, 0);
+			else
+				d.put(v, Integer.MAX_VALUE);
+			pqTokens.put(v, pq.insert(d.get(v), v)); 											// hash the vertices and entries of the priority queue
+		}
+		
+		while (!pq.isEmpty() ) {
+			Entry<Integer, Vertex<V>> entry = pq.removeMin();									// Dijkstra's extract and remove min from Q
+			int key = entry.getKey();										
+			Vertex<V> u = entry.getValue();
+			cloud.put(u, key);
+			pqTokens.remove(u);																	// is already removed from pq
+			for (Edge<Integer> e : G.outgoingEdges(u)) {	
+				Vertex<V> v = G.opposite(u, e);					
+				if (cloud.get(v)==null) {
+					int wgt = e.getElement();													// perform relaxation
+					if (d.get(u)+wgt < d.get(v)) {
+						d.put(v, d.get(u)+wgt);
+						pq.replaceKey(pqTokens.get(v), d.get(v));
+					}
+				}
+			}
+			
+		}		
+		return cloud;
+	}
+	
+	
+	/** Computes a minimum spanning tree of graph g using Kruksal */
+	public PositionalList<Edge<Integer>> MST(Graph<V, Integer> g){
+		PositionalList<Edge<Integer>> tree = (PositionalList<Edge<Integer>>) new LinkedPositionalList<Edge<Integer>>();			// return list (T in Kruksal)
+		PriorityQueue<Integer, Edge<Integer>> pq = new HeapPriorityQueue<>();		// Q in Kruksal
+		Partition<Vertex<V>> forest = new Partition<>();
+		Map<Vertex<V>, Position<Vertex<V>>> positions = new ProbeHashMap<>();       // maps each vertex to a forest position
+		
+		for (Vertex<V> v : g.vertices())
+			positions.put(v, (Position<Vertex<V>>) forest.makeCluster(v));          // define for each vertex a cluster
+		
+		for (Edge<Integer> e : g.edges())
+			pq.insert(e.getElement(), e);											// filling up the priority queue with edges
+		
+		int size = g.numVertices();
+		while (tree.size()!= size -1 && !pq.isEmpty()) {
+			Entry<Integer, Edge<Integer>> entry = pq.removeMin();
+			Edge<Integer> edge = entry.getValue();
+			Vertex<V>[] endpoints = g.endVertices(edge);
+			Position<Vertex<V>> a = forest.find(positions.get(endpoints[0]));
+			Position<Vertex<V>> b = forest.find(positions.get(endpoints[1]));
+			if (a != b) {
+				tree.addLast(edge);
+				forest.union(a, b);
+			}
+		}
+		
+		return tree;
+	}
+	
+	
+
+}
